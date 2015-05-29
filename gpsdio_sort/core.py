@@ -1,6 +1,10 @@
+#!/usr/bin/env python
+
+
 """
 Core components for gpsdio_sort
 """
+
 
 import click
 import gpsdio
@@ -10,19 +14,45 @@ import subprocess
 import os
 import datetime
 
+
 @click.command(name='sort')
 @click.option(
-    '-c', '--cols', metavar='COLS', default="timestamp",
-    help="Sort rows by columns (coma separated list). Default: timestamp",
+    '-c', '--cols', metavar='COL,[COL,...]', default="timestamp",
+    help="Sort rows by columns.  Specify as a comma separated list.  (default: timestamp)",
 )
-@click.argument("infile", metavar="INPUT_FILENAME")
-@click.argument("outfile", metavar="OUTPUT_FILENAME")
+@click.argument("infile")
+@click.argument("outfile")
 @click.pass_context
 def gpsdio_sort(ctx, infile, outfile, cols='timestamp'):
+
     """
-    Sorts messages in an arbitrarily large file according to an
-    arbitrary set of columns, by default 'timestamp'.
+    Sort messages by column in large files.
+
+    Sorts messages in an arbitrarily large file according to an arbitrary set
+    of columns, by default 'timestamp'.
+
+    The unix `sort` command is used so large tempfiles may be written.
     """
+
+    # Make sure unix sort is available
+    for p in os.environ['PATH'].split(os.pathsep):
+        if os.access(os.path.join(p, 'sort'), os.X_OK):
+            break
+    else:
+        raise click.ClickException("Unix sort is not on path.")
+
+    # Figure out if we can get the driver and compression out of the
+    # parent click context
+    if isinstance(ctx.obj, dict):
+        i_drv = ctx.obj.get('i_drv')
+        i_cmp = ctx.obj.get('i_cmp')
+        o_drv = ctx.obj.get('o_drv')
+        o_cmp = ctx.obj.get('o_cmp')
+    else:
+        i_drv = None
+        i_cmp = None
+        o_drv = None
+        o_cmp = None
 
     tempfile1 = outfile + ".tmp1"
     tempfile2 = outfile + ".tmp2"
@@ -45,16 +75,14 @@ def gpsdio_sort(ctx, infile, outfile, cols='timestamp'):
     def format_row(row):
         return msgpack.dumps(
             gpsdio.schema.export_msg(row)
-            ).replace('\1', '\1\1'
-                      ).replace('\n', '\1\2')
+        ).replace('\1', '\1\1').replace('\n', '\1\2')
 
     def load_row(row):
         return gpsdio.schema.import_msg(
             msgpack.loads(
-                row.replace('\1\2', '\n'
-                            ).replace('\1\1', '\1')))
+                row.replace('\1\2', '\n').replace('\1\1', '\1')))
 
-    with gpsdio.open(infile) as i:
+    with gpsdio.open(infile, driver=i_drv, compression=i_cmp) as i:
         with open(tempfile1, "w") as t:
             for line in i:
                 key = getKey(line)
@@ -63,14 +91,13 @@ def gpsdio_sort(ctx, infile, outfile, cols='timestamp'):
     # Collate using C locale to sort by character value
     # See http://unix.stackexchange.com/questions/31886/how-do-get-unix-sort-to-sort-in-same-order-as-java-by-unicode-value/31922#31922
     # for infor on why this works for utf-8 text too
-
     env = dict(os.environ)
     env['LC_COLLATE'] = 'C' 
 
     subprocess.call(["sort", tempfile1, "-o", tempfile2], env=env)
 
     with open(tempfile2) as t:
-        with gpsdio.open(outfile, "w") as o:
+        with gpsdio.open(outfile, "w", driver=o_drv, compression=o_cmp) as o:
             for line in t:
                 o.writerow(load_row(line.split(" * ", 1)[1][:-1]))
 
