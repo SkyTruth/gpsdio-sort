@@ -11,7 +11,7 @@ gpsdio sorting plugin
     :target: https://coveralls.io/r/SkyTruth/gpsdio-sort
 
 
-A CLI plugin for `gpsdio <https://github.com/skytruth/gpdsio/>`_ that creates sort rasters.
+A CLI plugin for `gpsdio <https://github.com/skytruth/gpdsio/>`_ that sorts messages in arbitrarily large files according to an arbitrary set of columns.
 
 
 Examples
