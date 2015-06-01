@@ -14,8 +14,11 @@ import subprocess
 import os
 import datetime
 
+from . import __version__
+
 
 @click.command(name='sort')
+@click.version_option(__version__, prog_name='gpsdio-sort')
 @click.option(
     '-c', '--cols', metavar='COL,[COL,...]', default="timestamp",
     help="Sort rows by columns.  Specify as a comma separated list.  (default: timestamp)",
