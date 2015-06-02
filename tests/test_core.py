@@ -3,14 +3,14 @@ Unittests for `gpsdio_sort.core`.
 """
 
 
-import tempfile
-
 from click.testing import CliRunner
-import gpsdio_sort.core
 import gpsdio.cli
 import os.path
 import datetime
 import random
+
+import gpsdio_sort
+
 
 def randdate():
     return datetime.datetime(
@@ -53,3 +53,13 @@ def test_sort():
                 last = row
     finally:
         cleanup()
+
+
+def test_version():
+    result = CliRunner().invoke(gpsdio.cli.main.main_group, [
+        'sort',
+        '--version'
+    ])
+
+    assert result.exit_code is 0
+    assert 'gpsdio-sort' in result.output and gpsdio_sort.__version__ in result.output
